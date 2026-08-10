@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-set -eou pipefail
+OUTDIR="results"
+mkdir -p "$OUTDIR"
 
-OUTPUT="/var/log/system_info.log"
-mkdir -p "$(dirname "$OUTPUT")"
+OUT="$OUTDIR/system.json"
 
-{
-  echo "*******SYSTEM INFO********"
-  date
+CPU=$(lscpu -J)
+DISKS=$(lsblk -J)
+NVME=$(nvme list -o json 2>/dev/null || echo "{}")
+SENSORS=$(sensors -j 2>/dev/null || echo "{}")
 
-  echo
-  echo "******OS********"
-  OS_INFO=$(jq -n \
-    --arg name "$(grep ^NAME= /etc/os-release | cut -d= -f2-)" \
-    --arg version "$(grep ^VERSION= /etc/os-release | cut -d= -f2-)" \
-    '{name: $name, version: $version}')
+SMART=()
 
-  echo
-  echo "********CPU*******"
-  lscpu
-
-  echo
-  echo "******DISKS******"
-  lsblk
-
-  echo
-  echo "*********NVME DEVICES*******"
-  nvme list || true
-
-  echo
-  echo "********SMART DATA*******"
-  for d in /dev/nvme* /dev/sd*; do
+for d in /dev/nvme*n1 /dev/sd?; do
     [[ -b "$d" ]] || continue
-    echo "SMART $d"
-    if [[ "$d" == /dev/nvme* ]]; then nvme smart-log "$d" || true
-    else smartctl -a "$d" || true
+
+    if [[ "$d" == /dev/nvme* ]]; then
+        DATA=$(nvme smart-log "$d" --output-format=json 2>/dev/null || echo "{}")
+    else
+        DATA=$(smartctl -a -j "$d" 2>/dev/null || echo "{}")
     fi
-    echo
-  done
-  echo; echo "********TEMP********"; sensors || true
-} | tee "$OUTPUT"
+
+    SMART+=("$DATA")
+done
+
+jq -n \
+  --argjson cpu "$CPU" \
+  --argjson disks "$DISKS" \
+  --argjson nvme "$NVME" \
+  --argjson sensors "$SENSORS" \
+  --argjson smart "$(printf '%s\n' "${SMART[@]}" | jq -s '.')" \
+  '{
+    cpu:$cpu,
+    disks:$disks,
+    nvme:$nvme,
+    sensors:$sensors,
+    smart:$smart
+  }' > "$OUT"
+
+echo "Saved $OUT"

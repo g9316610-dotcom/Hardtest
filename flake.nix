@@ -1,9 +1,11 @@
 {
-  description = "Flake hard tests for linux";
+  description = "Hardware diagnostics and stress testing toolkit";
+
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
+
   outputs =
     {
       self,
@@ -21,24 +23,82 @@
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            stress-ng
+
+            ####################
+            ## Shell
+            ####################
+
+            bash
+            jq
+            gawk
+            coreutils
+            gnugrep
+            gnused
+            findutils
+
+            ####################
+            ## Development
+            ####################
+
+            git
+            shellcheck
+            shfmt
+
+            ####################
+            ## Hardware
+            ####################
+
             fio
+            stress-ng
+            sysbench
+            memtester
+
+            ####################
+            ## Storage
+            ####################
+
             nvme-cli
             smartmontools
-            sysbench
             hdparm
+
+            ####################
+            ## Monitoring
+            ####################
+
             lm_sensors
             sysstat
             iotop
             hwinfo
-            perf
-            memtester
-            jq
-            gawk
+            pciutils
+            usbutils
+            util-linux
+            lshw
+            dmidecode
+
+            ####################
+            ## Misc
+            ####################
+
             pv
+
           ];
+
+          shellHook = ''
+            export HARDTESTS_ROOT=$PWD
+            export HARDTESTS_RESULTS=$PWD/results
+
+            mkdir -p "$HARDTESTS_RESULTS"
+
+            echo
+            echo "=================================="
+            echo " HardTests development shell"
+            echo "=================================="
+            echo
+            echo "Project : $HARDTESTS_ROOT"
+            echo "Results : $HARDTESTS_RESULTS"
+            echo
+          '';
         };
       }
     );
-
 }
