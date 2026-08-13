@@ -22,7 +22,7 @@ EPS=$(awk '/events per second:/{print $NF}' <<< "$SB")
 echo "  stress-ng CPU stress (${DURATION}s, ${NCPU} workers)..."
 SNG=$(stress-ng --cpu "$NCPU" --timeout "${DURATION}s" --metrics-brief 2>&1 || true)
 
-BOGO_OPS=$(awk '/cpu /{print $(NF-1)}' <<< "$SNG" | tail -1)
+BOGO_OPS=$(awk '/metrc:.*cpu /{print $(NF-1)}' <<< "$SNG" | tail -1)
 BOGO_OPS="${BOGO_OPS:-0}"
 
 jq -n \
