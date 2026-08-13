@@ -13,7 +13,10 @@ MEM_TOTAL=$(awk '/MemTotal/{print $2 * 1024}' /proc/meminfo)
 MEM_FREE=$(awk '/MemAvailable/{print $2 * 1024}' /proc/meminfo)
 MEM=$(printf '{"total":%s,"free":%s}' "$MEM_TOTAL" "$MEM_FREE")
 NVME=$(nvme list -o json 2>/dev/null || echo '{"Devices":[]}')
+jq -e . <<< "$NVME" >/dev/null 2>&1 || NVME='{"Devices":[]}'
+
 SENSORS=$(sensors -j 2>/dev/null || echo '{}')
+jq -e . <<< "$SENSORS" >/dev/null 2>&1 || SENSORS='{}'
 
 SMART_LIST="[]"
 for d in /dev/nvme*n1 /dev/sd?; do
@@ -25,7 +28,9 @@ for d in /dev/nvme*n1 /dev/sd?; do
     else
         DATA=$(smartctl -a -j "$d" 2>/dev/null || echo '{}')
     fi
-    SMART_LIST=$(jq --argjson d "$DATA" '. + [$d]' <<< "$SMART_LIST")
+    if jq -e . <<< "$DATA" >/dev/null 2>&1; then
+        SMART_LIST=$(jq --argjson d "$DATA" '. + [$d]' <<< "$SMART_LIST")
+    fi
 done
 
 jq -n \
