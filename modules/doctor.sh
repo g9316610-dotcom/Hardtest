@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REQ="fio jq smartctl nvme stress-ng sysbench memtester sensors lsblk lscpu hdparm"
+REQ="fio jq smartctl nvme stress-ng sysbench sensors lsblk lscpu hdparm"
 
 PASSED=""
 FAILED=""

@@ -16,15 +16,13 @@ run() {
 case "$SUITE" in
     all)
         run "CPU"    cpu
-        run "Memory" mem
         run "Disk"   disk
         ;;
     cpu)   run "CPU"    cpu  ;;
-    mem)   run "Memory" mem  ;;
     disk)  run "Disk"   disk ;;
     *)
         echo "Unknown test suite: $SUITE" >&2
-        echo "Available: cpu, mem, disk, all" >&2
+        echo "Available: cpu, disk, all" >&2
         exit 1
         ;;
 esac

@@ -10,7 +10,6 @@ hr "HardTests Report"
 echo "  Generated : $(date -u '+%Y-%m-%d %H:%M UTC')"
 echo "  Results   : $RESULTS"
 
-# ── Inventory ──────────────────────────────────────────────
 if [[ -f "$RESULTS/inventory.json" ]]; then
     echo
     hr "System"
@@ -57,19 +56,20 @@ if [[ -f "$RESULTS/inventory.json" ]]; then
     hr "SMART"
     jq -r '
         .smart[] |
-        if .device then "  Device : " + .device else "" end,
-        if .percent_used  != null then "  % used : " + (.percent_used | tostring) + "%" else "" end,
-        if .avail_spare   != null then "  Spare  : " + (.avail_spare  | tostring) + "%" else "" end,
-        if .media_errors  != null then "  Errors : " + (.media_errors | tostring) else "" end,
-        if .power_on_hours!= null then "  Hours  : " + (.power_on_hours | tostring) + " h" else "" end,
-        if .temperature   != null then "  Temp   : " + ((.temperature - 273) | tostring) + "°C" else "" end
+        "  Device : " + .device + " (" + .type + ")",
+        (if .health != null then "  Health : " + (if .health then "PASSED" else "FAILED" end) else "" end),
+        (if .percent_used  != null then "  % used : " + (.percent_used | tostring) + "%" else "" end),
+        (if .avail_spare   != null then "  Spare  : " + (.avail_spare  | tostring) + "%" else "" end),
+        (if .media_errors  != null then "  Errors : " + (.media_errors | tostring) else "" end),
+        (if .power_on_hours!= null then "  Hours  : " + (.power_on_hours | tostring) + " h" else "" end),
+        (if .temperature   != null then "  Temp   : " + (.temperature | tostring) + "°C" else "" end),
+        ""
     ' "$RESULTS/inventory.json" 2>/dev/null | grep -v '^$' || true
 else
     echo
     echo "  [!] No inventory found. Run: hardtests inventory"
 fi
 
-# ── CPU Test ───────────────────────────────────────────────
 if [[ -f "$RESULTS/cpu_test.json" ]]; then
     echo
     hr "CPU Test"
@@ -80,37 +80,30 @@ if [[ -f "$RESULTS/cpu_test.json" ]]; then
         "  Latency avg  : " + (.sysbench.latency_ms.avg        | tostring) + " ms",
         "  Latency p95  : " + (.sysbench.latency_ms.p95        | tostring) + " ms",
         "  [stress-ng]",
-        "  Bogo ops/s   : " + (.stress_ng.bogo_ops_per_sec     | tostring),
+        "  Avg CPU freq : " + (.stress_ng.avg_cpu_freq_mhz     | tostring) + " MHz",
+        "  Freq samples :"
+    ' "$RESULTS/cpu_test.json"
+    jq -r '
+        .stress_ng.freq_samples[]? |
+        "    " + (.time_s | tostring) + "s : " + (.freq_mhz | tostring) + " MHz"
+    ' "$RESULTS/cpu_test.json"
+    jq -r '
         "  Tested at    : " + .timestamp
     ' "$RESULTS/cpu_test.json"
 else
     echo; echo "  [!] No CPU test results. Run: hardtests test cpu"
 fi
 
-# ── Memory Test ────────────────────────────────────────────
-if [[ -f "$RESULTS/mem_test.json" ]]; then
-    echo
-    hr "Memory Test"
-    jq -r '
-        "  Tested       : " + (.tested_mb    | tostring) + " MB",
-        "  Passed       : " + (.tests_passed | tostring) + " tests",
-        "  Failed       : " + (.tests_failed | tostring) + " tests",
-        "  Status       : " + .status,
-        "  Tested at    : " + .timestamp
-    ' "$RESULTS/mem_test.json"
-else
-    echo; echo "  [!] No memory test results. Run: hardtests test mem"
-fi
-
-# ── Disk Test ──────────────────────────────────────────────
 if [[ -f "$RESULTS/disk_test.json" ]]; then
     echo
     hr "Disk Test"
     jq -r '
-        "  Seq read     : " + (.sequential.read_mb_s  | tostring) + " MB/s",
-        "  Seq write    : " + (.sequential.write_mb_s | tostring) + " MB/s",
-        "  Rand read    : " + (.random_4k.read_iops   | tostring) + " IOPS  (" + (.random_4k.read_lat_us  | tostring) + " µs)",
-        "  Rand write   : " + (.random_4k.write_iops  | tostring) + " IOPS  (" + (.random_4k.write_lat_us | tostring) + " µs)",
+        .disks[] |
+        "  \(.device) (\(.type))",
+        "    Seq read  : " + (.read_mb_s  | tostring) + " MB/s",
+        "    Seq write : " + (.write_mb_s | tostring) + " MB/s"
+    ' "$RESULTS/disk_test.json"
+    jq -r '
         "  Tested at    : " + .timestamp
     ' "$RESULTS/disk_test.json"
 else

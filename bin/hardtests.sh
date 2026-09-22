@@ -14,14 +14,13 @@ Usage: hardtests <command> [args]
 Commands:
   doctor              Check required tools are installed
   inventory           Collect system hardware information
-  test [cpu|mem|disk] Run stress tests  (default: all)
+  test [cpu|disk]     Run stress tests  (default: all)
   report              Display results report
   help                Show this help
 
 Environment:
   HARDTESTS_RESULTS      Results directory  (default: ./results)
   HARDTESTS_CPU_DURATION CPU test duration  (default: 30s)
-  HARDTESTS_MEM_MB       Memory to test     (default: 256 MB)
   HARDTESTS_DISK_SIZE    Disk test file     (default: 512M)
   HARDTESTS_DISK_DURATION Disk test runtime (default: 30s)
 EOF

@@ -23,13 +23,50 @@ for d in /dev/nvme*n1 /dev/sd?; do
     [[ -b "$d" ]] || continue
     if [[ "$d" == /dev/nvme* ]]; then
         RAW=$(nvme smart-log "$d" --output-format=json 2>/dev/null || true)
-        DATA=$(jq 'if has("error") then {} else . end' <<< "${RAW:-{\}}" 2>/dev/null || echo '{}')
-        DATA=$(jq --arg dev "$d" '. + {device:$dev}' <<< "$DATA")
+        DATA=$(jq --arg dev "$d" '
+            if has("error") then {device:$dev}
+            else {
+                device:         $dev,
+                type:           "nvme",
+                percent_used:   (.percent_used // null),
+                avail_spare:    (.avail_spare // null),
+                media_errors:   (.media_errors // null),
+                power_on_hours: (.power_on_hours // null),
+                temperature:    (if .temperature != null then (.temperature - 273) else null end),
+                health:         null
+            } end
+        ' <<< "${RAW:-{}}" 2>/dev/null || echo '{}')
     else
-        DATA=$(smartctl -a -j "$d" 2>/dev/null || echo '{}')
+        RAW=$(smartctl -a -j "$d" 2>/dev/null || true)
+        DATA=$(jq --arg dev "$d" '
+            {
+                device:         $dev,
+                type:           "sata",
+                percent_used:   null,
+                avail_spare:    null,
+                media_errors:   (.ata_smart_error_log.summary.count // null),
+                power_on_hours: (.power_on_time.hours // null),
+                temperature:    (.temperature.current // null),
+                health:         (.smart_status.passed // null)
+            }
+        ' <<< "${RAW:-{}}" 2>/dev/null || echo '{}')
     fi
     if jq -e . <<< "$DATA" >/dev/null 2>&1; then
         SMART_LIST=$(jq --argjson d "$DATA" '. + [$d]' <<< "$SMART_LIST")
+    fi
+done
+
+for _var in CPU DISKS MEM NVME SENSORS SMART_LIST; do
+    if ! jq -e . <<< "${!_var}" >/dev/null 2>&1; then
+        echo "WARNING: \$$_var is not valid JSON, replacing with fallback" >&2
+        case $_var in
+            CPU)        CPU='{"lscpu":[]}'   ;;
+            DISKS)      DISKS='{"blockdevices":[]}' ;;
+            MEM)        MEM='{"total":0,"free":0}'  ;;
+            NVME)       NVME='{"Devices":[]}'       ;;
+            SENSORS)    SENSORS='{}'                 ;;
+            SMART_LIST) SMART_LIST='[]'              ;;
+        esac
     fi
 done
 
